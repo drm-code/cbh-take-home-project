@@ -9,3 +9,97 @@ You've been asked to refactor the function `deterministicPartitionKey` in [`dpk.
 You will be graded on the exhaustiveness and quality of your unit tests, the depth of your refactor, and the level of insight into your thought process provided by the written explanation.
 
 ## Your Explanation Here
+
+### Changes
+
+### `dpk.js`
+
+```
+// Before
+let candidate;
+
+// After
+// When no input is given the default result is `TRIVIAL_PARTITION_KEY` const value.
+let candidate = TRIVIAL_PARTITION_KEY;
+```
+
+```
+// Before
+
+if (event) {
+  if (event.partitionKey) {
+    candidate = event.partitionKey;
+  } else {
+    const data = JSON.stringify(event);
+    candidate = crypto.createHash("sha3-512").update(data).digest("hex");
+  }
+
+
+// After
+// Early return pattern, in previous version of the logic when no input is given,
+// "candidate" variable is filled with the "TRIVIAL_PARTITION_KEY" const value
+
+if (!event) {
+  return candidate;
+```
+
+```
+// Before
+
+if (candidate) {
+  if (typeof candidate !== "string") {
+    candidate = JSON.stringify(candidate);
+  }
+
+
+// After
+// At this level we don't need to evaluate "candidate" variable because
+// it was initialized before, also "event" param has value so we need
+// to evaluate it
+
+if (event.partitionKey) {
+  const isStringType = typeof event.partitionKey === "string";
+  candidate = isStringType
+    ? event.partitionKey
+    : JSON.stringify(event.partitionKey);
+```
+
+```
+// Before
+
+candidate = TRIVIAL_PARTITION_KEY;
+
+
+// After
+// When "event" is not an object containing the property "partitionKey"
+// we just use its string value to create the crypto value
+
+const data = JSON.stringify(event);
+candidate = crypto.createHash("sha3-512").update(data).digest("hex");
+```
+
+### `dek.test.js`
+
+Test cases for the new refactored code
+
+```
+describe("event.partitionKey", () => {
+  it("When it is string", () => {
+    const trivialKey = deterministicPartitionKey({
+      partitionKey: "YONATHAN",
+    });
+    expect(trivialKey).toBe("YONATHAN");
+  });
+  it("When it is not string", () => {
+    const trivialKey = deterministicPartitionKey({ partitionKey: 12345 });
+    expect(trivialKey).toBe("12345");
+  });
+  it("When 'event.partitionKey.length' > MAX_PARTITION_KEY_LENGTH", () => {
+    const trivialKey = deterministicPartitionKey({
+      partitionKey:
+        "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
+    });
+    expect(trivialKey.length).toBe(128);
+  });
+});
+```
